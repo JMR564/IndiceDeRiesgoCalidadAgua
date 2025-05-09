@@ -1,0 +1,60 @@
+Avances codigo filtro por municipio
+import pandas as pd
+
+df = pd.read_csv("Calidad_agua_IRCA.csv")
+
+
+df_bogota = df[df["Municipio"].str.upper().str.contains("BOGOTÁ")]
+
+
+print(df_bogota.columns)
+
+
+columnas_utiles = [
+    "Año", "Periodo", "Departamento", "Municipio", 
+    "Nombre del prestador del servicio", "Población abastecida", 
+    "IRCA", "Nivel IRCA"
+]
+df_bogota = df_bogota[columnas_utiles]
+
+
+df_bogota = df_bogota.dropna()
+
+
+def clasificar_irca(valor):
+    if valor <= 14:
+        return "bajo"
+    elif 14 < valor <= 35:
+        return "medio"
+    else:
+        return "alto"
+
+df_bogota["RiesgoClasificado"] = df_bogota["IRCA"].apply(clasificar_irca)
+
+
+df_bogota["Periodo"] = df_bogota["Periodo"].astype(str)
+df_bogota["Año"] = df_bogota["Año"].astype(int)
+
+
+df_final = df_bogota.drop(columns=["Nivel IRCA", "Municipio", "Departamento", "Nombre del prestador del servicio"])
+
+
+from sklearn.preprocessing import LabelEncoder
+
+le = LabelEncoder()
+df_final["RiesgoClasificado"] = le.fit_transform(df_final["RiesgoClasificado"])  # 0: bajo, 1: medio, 2: alto
+
+
+print(df_final.head())
+
+CONEXION A LA BASE DE DATOS
+
+import mysql.connector
+
+def obtener_municipios():
+    conexion = mysql.connector.connect(
+        host="localhost",
+        user="root",
+        password="",
+        database="machine"
+    )
