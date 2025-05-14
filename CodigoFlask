@@ -1,0 +1,9 @@
+@app.route("/Filtro/")
+def ver_ciudades():
+    ciudades = ["Bogotá, D.C.", "Sopó", "Chía", "Zipaquirá", "Cajicá"]
+    datos_ciudades = obtener_ciudades(ciudades)
+    return render_template("resultados.html", ciudades=datos_ciudades)
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
