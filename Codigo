@@ -1,7 +1,8 @@
 import mysql.connector
 
-def obtener_ciudad():
+def obtener_datos_por_ciudades(ciudades):
     try:
+        
         conexion = mysql.connector.connect(
             host="localhost",
             user="root",
@@ -10,21 +11,38 @@ def obtener_ciudad():
         )
 
         cursor = conexion.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM calidad_del_agua_para_consumo_humano_en_colombia_20250514 LIMIT 5")
-        ciudad = cursor.fetchall()
 
-        conexion.close()
         
-        print(" Conexión exitosa. Ejemplo de datos obtenidos:")
-        for fila in ciudad:
+        placeholders = ', '.join(['%s'] * len(ciudades))
+
+        
+        consulta = f"""
+        SELECT *
+        FROM calidad_del_agua_para_consumo_humano_en_colombia_20250514
+        WHERE Municipio IN ({placeholders})
+        """
+
+        
+        cursor.execute(consulta, ciudades)
+        resultados = cursor.fetchall()
+
+        
+        conexion.close()
+
+      
+        print(" Datos filtrados por ciudades:")
+        for fila in resultados:
             print(fila)
-            
-        return ciudad
-    
+
+        return resultados
+
     except mysql.connector.Error as error:
-        print(" Error al conectar o consultar:", error)
+        print("Error al conectar o consultar:", error)
         return None
 
 
-obtener_ciudad()
-
+if __name__ == "__main__":
+  
+    ciudades = ["Bogotá, D.C.","Sopó","Chía","Zipaquirá","Cajicá"]
+    
+    obtener_datos_por_ciudades(ciudades)
