@@ -1,48 +1,26 @@
+import pandas as pd
 import mysql.connector
+import numpy as np
 
-def obtener_datos_por_ciudades(ciudades):
+def cargar_datos(ciudades):
     try:
-        
         conexion = mysql.connector.connect(
             host="localhost",
             user="root",
-            password="",  
+            password="",
             database="calidad_agua_irca"
         )
-
         cursor = conexion.cursor(dictionary=True)
-
-        
         placeholders = ', '.join(['%s'] * len(ciudades))
-
-        
         consulta = f"""
-        SELECT *
+        SELECT Departamento, Municipio, Año, IRCA, Nivel_de_riesgo, IRCAUrbano, IRCARural
         FROM calidad_del_agua_para_consumo_humano_en_colombia_20250514
         WHERE Municipio IN ({placeholders})
         """
-
-        
         cursor.execute(consulta, ciudades)
         resultados = cursor.fetchall()
-
-        
         conexion.close()
-
-      
-        print(" Datos filtrados por ciudades:")
-        for fila in resultados:
-            print(fila)
-
-        return resultados
-
+        return pd.DataFrame(resultados)
     except mysql.connector.Error as error:
         print("Error al conectar o consultar:", error)
-        return None
-
-
-if __name__ == "__main__":
-  
-    ciudades = ["Bogotá, D.C.","Sopó","Chía","Zipaquirá","Cajicá"]
-    
-    obtener_datos_por_ciudades(ciudades)
+        return pd.DataFrame()
