@@ -1,9 +1,54 @@
-@app.route("/Filtro/")
-def ver_ciudades():
+@app.route('/Filtro/')
+def modelo_gradient_boosting():
     ciudades = ["Bogotá, D.C.", "Sopó", "Chía", "Zipaquirá", "Cajicá"]
-    datos_ciudades = obtener_ciudades(ciudades)
-    return render_template("resultados.html", ciudades=datos_ciudades)
+    df = cargar_datos(ciudades)
 
+    if df.empty:
+        return "No se encontraron datos."
+
+    columnas_utiles = ['IRCA', 'IRCAUrbano', 'IRCARural']
+    df.replace('ND', np.nan, inplace=True)
+    df[columnas_utiles] = df[columnas_utiles].apply(pd.to_numeric, errors='coerce')
+
+    df = df.dropna(subset=columnas_utiles + ['Nivel_de_riesgo'])
+
+    df['Riesgo'] = df['Nivel_de_riesgo'].map({
+        'Sin riesgo': 0,
+        'Bajo': 1,
+        'Medio': 2,
+        'Alto': 3,
+        'Inviable sanitariamente': 4
+    })
+
+    df = df.dropna(subset=['Riesgo'])
+
+    X = df[columnas_utiles]
+    y = df['Riesgo']
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+    modelo = GradientBoostingClassifier()
+    modelo.fit(X_train, y_train)
+
+    y_pred = modelo.predict(X_test)
+    accuracy = accuracy_score(y_test, y_pred)
+
+    ejemplo = pd.DataFrame([{
+        'IRCA': 40.0,
+        'IRCAUrbano': 35.0,
+        'IRCARural': 60.0
+    }])
+    prediccion = modelo.predict(ejemplo)[0]
+
+    niveles = {
+        0: 'Sin riesgo',
+        1: 'Bajo',
+        2: 'Medio',
+        3: 'Alto',
+        4: 'Inviable sanitariamente'
+    }
+
+    return render_template("prediccion.html", accuracy=round(accuracy * 100, 2), prediccion=niveles[prediccion])
 
 if __name__ == "__main__":
     app.run(debug=True)
