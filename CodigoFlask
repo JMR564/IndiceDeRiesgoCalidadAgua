@@ -1,54 +1,87 @@
-@app.route('/Filtro/')
-def modelo_gradient_boosting():
-    ciudades = ["Bogotá, D.C.", "Sopó", "Chía", "Zipaquirá", "Cajicá"]
-    df = cargar_datos(ciudades)
+@app.route('/formulario')
+def formulario():
+    ciudades_disponibles = ["Bogotá D.C.", "Chía", "Sopó", "Zipaquirá"]
+    return render_template("formulario.html", ciudades=ciudades_disponibles)
+
+@app.route('/resultado', methods=['POST'])
+def resultado():
+    ciudad = request.form.get("ciudad")
+
+    
+    ciudades_permitidas = ["Bogotá D.C.", "Chía", "Sopó", "Zipaquirá"]
+    if ciudad not in ciudades_permitidas:
+        return "Ciudad no permitida", 400
+
+    
+    datos = obtener_datos_por_ciudades([ciudad])
+    if datos is None or len(datos) == 0:
+        return f"No se encontraron datos para: {ciudad}"
+
+   
+    df = pd.DataFrame(datos)
+    df.columns = df.columns.str.strip()  
+
+    
+    columnas_necesarias = {'IRCA', 'IRCAUrbano', 'IRCARural'}
+    if not columnas_necesarias.issubset(df.columns):
+        return f"Faltan columnas necesarias en los datos. Columnas esperadas: {columnas_necesarias}. Columnas obtenidas: {df.columns.tolist()}"
+
+    
+    df = df.replace("ND", pd.NA).dropna()
 
     if df.empty:
-        return "No se encontraron datos."
+        return "No hay datos válidos después de limpiar los 'ND'."
 
-    columnas_utiles = ['IRCA', 'IRCAUrbano', 'IRCARural']
-    df.replace('ND', np.nan, inplace=True)
-    df[columnas_utiles] = df[columnas_utiles].apply(pd.to_numeric, errors='coerce')
+    try:
+        df['IRCA'] = df['IRCA'].astype(float)
+        df['IRCAUrbano'] = df['IRCAUrbano'].astype(float)
+        df['IRCARural'] = df['IRCARural'].astype(float)
+    except ValueError:
+        return "Error al convertir columnas a tipo numérico."
 
-    df = df.dropna(subset=columnas_utiles + ['Nivel_de_riesgo'])
+   
+    if 'Nivel de riesgo' not in df.columns:
+        def clasificar_irca(irca):
+            if irca <= 5:
+                return "Sin riesgo"
+            elif irca <= 14:
+                return "Riesgo bajo"
+            elif irca <= 35:
+                return "Riesgo medio"
+            elif irca <= 80:
+                return "Riesgo alto"
+            else:
+                return "Riesgo inviable sanitariamente"
+        df['Nivel de riesgo'] = df['IRCA'].apply(clasificar_irca)
 
-    df['Riesgo'] = df['Nivel_de_riesgo'].map({
-        'Sin riesgo': 0,
-        'Bajo': 1,
-        'Medio': 2,
-        'Alto': 3,
-        'Inviable sanitariamente': 4
-    })
+    # Entrenamiento del modelo
+    X = df[['IRCAUrbano', 'IRCARural']]
+    y = df['Nivel de riesgo']
 
-    df = df.dropna(subset=['Riesgo'])
+    if len(y.unique()) < 2:
+        return "No hay suficientes clases para entrenar el modelo."
 
-    X = df[columnas_utiles]
-    y = df['Riesgo']
-
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
 
     modelo = GradientBoostingClassifier()
     modelo.fit(X_train, y_train)
-
     y_pred = modelo.predict(X_test)
-    accuracy = accuracy_score(y_test, y_pred)
 
-    ejemplo = pd.DataFrame([{
-        'IRCA': 40.0,
-        'IRCAUrbano': 35.0,
-        'IRCARural': 60.0
-    }])
-    prediccion = modelo.predict(ejemplo)[0]
+    # Generar reporte y matriz de confusión
+    reporte = classification_report(y_test, y_pred, zero_division=0)
+    cm = confusion_matrix(y_test, y_pred, labels=modelo.classes_)
 
-    niveles = {
-        0: 'Sin riesgo',
-        1: 'Bajo',
-        2: 'Medio',
-        3: 'Alto',
-        4: 'Inviable sanitariamente'
-    }
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
+                xticklabels=modelo.classes_, yticklabels=modelo.classes_)
+    plt.xlabel("Predicción")
+    plt.ylabel("Real")
+    plt.title("Matriz de Confusión")
 
-    return render_template("prediccion.html", accuracy=round(accuracy * 100, 2), prediccion=niveles[prediccion])
+    ruta_img = "static/matriz_confusion.png"
+    plt.savefig(ruta_img)
+    plt.close()
 
-if __name__ == "__main__":
-    app.run(debug=True)
+    return render_template("resultado.html", municipio=ciudad, reporte=reporte, imagen=ruta_img)
