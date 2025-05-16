@@ -1,48 +1,42 @@
-import mysql.connector
-
 def obtener_datos_por_ciudades(ciudades):
     try:
-        
         conexion = mysql.connector.connect(
             host="localhost",
             user="root",
             password="",  
             database="calidad_agua_irca"
         )
-
         cursor = conexion.cursor(dictionary=True)
 
-        
-        placeholders = ', '.join(['%s'] * len(ciudades))
+        if ciudades:
+            
+            placeholders = ', '.join(['%s'] * len(ciudades))
+            consulta = f"""
+                SELECT *
+                FROM calidad_del_agua_para_consumo_humano_en_colombia_20250514
+                WHERE Municipio IN ({placeholders})
+            """
+            cursor.execute(consulta, ciudades)
+        else:
+            
+            consulta = """
+                SELECT *
+                FROM calidad_del_agua_para_consumo_humano_en_colombia_20250514
+            """
+            cursor.execute(consulta)
 
-        
-        consulta = f"""
-        SELECT *
-        FROM calidad_del_agua_para_consumo_humano_en_colombia_20250514
-        WHERE Municipio IN ({placeholders})
-        """
-
-        
-        cursor.execute(consulta, ciudades)
         resultados = cursor.fetchall()
-
-        
         conexion.close()
 
-      
-        print(" Datos filtrados por ciudades:")
-        for fila in resultados:
-            print(fila)
-
-        return resultados
+        if resultados:
+            print(" Datos filtrados por ciudades:")
+            for fila in resultados:
+                print(fila)
+            return pd.DataFrame(resultados)
+        else:
+            print(" No se encontraron resultados.")
+            return pd.DataFrame()
 
     except mysql.connector.Error as error:
-        print("Error al conectar o consultar:", error)
-        return None
-
-
-if __name__ == "__main__":
-  
-    ciudades = ["Bogotá, D.C.","Sopó","Chía","Zipaquirá","Cajicá"]
-    
-    obtener_datos_por_ciudades(ciudades)
+        print(" Error al conectar o consultar:", error)
+        return pd.DataFrame()
