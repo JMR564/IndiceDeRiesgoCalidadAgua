@@ -1,45 +1,75 @@
+def clasificar_irca(irca):
+    try:
+        irca = float(irca)
+    except ValueError:
+        return "ND"
+    if irca <= 5:
+        return "Sin riesgo"
+    elif irca <= 14:
+        return "Riesgo bajo"
+    elif irca <= 35:
+        return "Riesgo medio"
+    elif irca <= 80:
+        return "Riesgo alto"
+    else:
+        return "Riesgo inviable sanitariamente"
+
+def entrenar_modelo(df):
+    df = df.dropna()
+    df['Nivel_IRCA'] = df['IRCA'].apply(clasificar_irca)
+    X = df[['IRCAUrbano', 'IRCARural']]
+    y = df['Nivel_IRCA']
+    modelo = GradientBoostingClassifier()
+    modelo.fit(X, y)
+    return modelo
+
 @app.route('/formulario')
 def formulario():
-    ciudades_disponibles = ["Bogotá D.C.", "Chía", "Sopó", "Zipaquirá"]
+    ciudades_disponibles = ["Bogotá, D.C.", "Chía", "Sopó", "Zipaquirá", "Cajicá"]
     return render_template("formulario.html", ciudades=ciudades_disponibles)
 
 @app.route('/resultado', methods=['POST'])
 def resultado():
     ciudad = request.form.get("ciudad")
+    irca_urbano = request.form.get("irca_urbano")
+    irca_rural = request.form.get("irca_rural")
 
-    
-    ciudades_permitidas = ["Bogotá D.C.", "Chía", "Sopó", "Zipaquirá"]
+  
+    if not irca_urbano or not irca_rural:
+        return "Faltan datos para realizar la predicción."
+
+    try:
+        irca_urbano = float(irca_urbano)
+        irca_rural = float(irca_rural)
+    except ValueError:
+        return "Los valores de IRCA deben ser numéricos."
+
+    ciudades_permitidas = ["Bogotá, D.C.", "Chía", "Sopó", "Zipaquirá", "Cajicá"]
     if ciudad not in ciudades_permitidas:
         return "Ciudad no permitida", 400
 
-    
     datos = obtener_datos_por_ciudades([ciudad])
     if datos is None or len(datos) == 0:
         return f"No se encontraron datos para: {ciudad}"
 
-   
     df = pd.DataFrame(datos)
-    df.columns = df.columns.str.strip()  
+    df.columns = df.columns.str.strip()
 
-    
-    columnas_necesarias = {'IRCA', 'IRCAUrbano', 'IRCARural'}
+    columnas_necesarias = {'IRCA', 'IRCAurbano', 'IRCArural'}
     if not columnas_necesarias.issubset(df.columns):
-        return f"Faltan columnas necesarias en los datos. Columnas esperadas: {columnas_necesarias}. Columnas obtenidas: {df.columns.tolist()}"
+        return f"Faltan columnas necesarias. Esperadas: {columnas_necesarias}, Obtenidas: {df.columns.tolist()}"
 
-    
     df = df.replace("ND", pd.NA).dropna()
-
     if df.empty:
         return "No hay datos válidos después de limpiar los 'ND'."
 
     try:
         df['IRCA'] = df['IRCA'].astype(float)
-        df['IRCAUrbano'] = df['IRCAUrbano'].astype(float)
-        df['IRCARural'] = df['IRCARural'].astype(float)
+        df['IRCAurbano'] = df['IRCAurbano'].astype(float)
+        df['IRCArural'] = df['IRCArural'].astype(float)
     except ValueError:
         return "Error al convertir columnas a tipo numérico."
 
-   
     if 'Nivel de riesgo' not in df.columns:
         def clasificar_irca(irca):
             if irca <= 5:
@@ -54,34 +84,44 @@ def resultado():
                 return "Riesgo inviable sanitariamente"
         df['Nivel de riesgo'] = df['IRCA'].apply(clasificar_irca)
 
-    # Entrenamiento del modelo
-    X = df[['IRCAUrbano', 'IRCARural']]
+    X = df[['IRCAurbano', 'IRCArural']]
     y = df['Nivel de riesgo']
 
     if len(y.unique()) < 2:
         return "No hay suficientes clases para entrenar el modelo."
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42
-    )
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     modelo = GradientBoostingClassifier()
     modelo.fit(X_train, y_train)
-    y_pred = modelo.predict(X_test)
 
-    # Generar reporte y matriz de confusión
-    reporte = classification_report(y_test, y_pred, zero_division=0)
-    cm = confusion_matrix(y_test, y_pred, labels=modelo.classes_)
+    reporte = classification_report(y_test, modelo.predict(X_test), zero_division=0)
+    cm = confusion_matrix(y_test, modelo.predict(X_test), labels=modelo.classes_)
 
+   
     plt.figure(figsize=(8, 6))
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
-                xticklabels=modelo.classes_, yticklabels=modelo.classes_)
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=modelo.classes_, yticklabels=modelo.classes_)
     plt.xlabel("Predicción")
     plt.ylabel("Real")
     plt.title("Matriz de Confusión")
-
-    ruta_img = "static/matriz_confusion.png"
+    ruta_img = os.path.join("static", "matriz_confusion.png")
     plt.savefig(ruta_img)
     plt.close()
 
-    return render_template("resultado.html", municipio=ciudad, reporte=reporte, imagen=ruta_img)
+   
+    input_data = [[irca_urbano, irca_rural]]
+    probabilidades = modelo.predict_proba(input_data)[0]
+    clases = modelo.classes_
+    predicciones = dict(zip(clases, [round(p * 100, 2) for p in probabilidades]))
+
+
+    clase_predicha = clases[probabilidades.argmax()]
+
+    return render_template("resultado.html",
+                           municipio=ciudad,
+                           irca_urbano=irca_urbano,
+                           irca_rural=irca_rural,
+                           clase_predicha=clase_predicha,
+                           predicciones=predicciones,
+                           imagen=ruta_img,
+                           reporte=reporte)
