@@ -1,48 +1,331 @@
-import mysql.connector
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Clasificador de Riesgo del Agua</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: #f4f9ff;
+      color: #333;
+      margin: 0;
+      padding: 30px;
+    }
 
-def obtener_datos_por_ciudades(ciudades):
-    try:
-        
-        conexion = mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password="",  
-            database="calidad_agua_irca"
-        )
+    .container {
+      max-width: 900px;
+      margin: auto;
+      background: white;
+      border-radius: 16px;
+      padding: 40px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    }
 
-        cursor = conexion.cursor(dictionary=True)
+    h1, h2 {
+      color: #2c3e50;
+      text-align: center;
+    }
 
-        
-        placeholders = ', '.join(['%s'] * len(ciudades))
+    .accordion {
+      background-color: #2a5d9f;
+      color: white;
+      cursor: pointer;
+      padding: 16px;
+      width: 100%;
+      border: none;
+      text-align: left;
+      outline: none;
+      font-size: 16px;
+      margin-top: 10px;
+      border-radius: 8px;
+      transition: background-color 0.3s ease;
+    }
 
-        
-        consulta = f"""
-        SELECT *
-        FROM calidad_del_agua_para_consumo_humano_en_colombia_20250514
-        WHERE Municipio IN ({placeholders})
-        """
+    .accordion:hover {
+      background-color: #1f467a;
+    }
 
-        
-        cursor.execute(consulta, ciudades)
-        resultados = cursor.fetchall()
+    .panel {
+      padding: 0 18px;
+      background-color: #f0f4fc;
+      display: none;
+      overflow: hidden;
+      border-left: 5px solid #2a5d9f;
+      border-radius: 0 0 8px 8px;
+      margin-bottom: 10px;
+    }
 
-        
-        conexion.close()
+    .form-group {
+      margin-bottom: 20px;
+    }
 
-      
-        print(" Datos filtrados por ciudades:")
-        for fila in resultados:
-            print(fila)
+    label {
+      font-weight: 600;
+      display: block;
+      margin-bottom: 8px;
+    }
 
-        return resultados
+    select, input[type="number"], button {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 1em;
+    }
 
-    except mysql.connector.Error as error:
-        print("Error al conectar o consultar:", error)
-        return None
+    button[type="submit"] {
+      background-color: #2a5d9f;
+      color: white;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.3s;
+      margin-top: 10px;
+    }
+
+    button[type="submit"]:hover {
+      background-color: #1f467a;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 40px;
+      font-size: 0.9em;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Índice de Riesgo del Agua</h1>
+
+    <!-- Botones con paneles colapsables -->
+    <button class="accordion">01. Problema</button>
+    <div class="panel">
+      <p>El agua que consumimos es cada vez menos pura, lo que incrementa el riesgo para la salud debido al aumento de enfermedades asociadas con la baja calidad del agua.</p>
+    </div>
+
+    <button class="accordion">02. Objetivo General y Específicos</button>
+    <div class="panel">
+      <p><strong>Objetivo general:</strong> Predecir el riesgo para consumo humano según la calidad del agua en los próximos años.</p>
+      <ul>
+        <li>Determinar el nivel de sanidad del agua urbana en municipios cercanos a Bogotá.</li>
+        <li>Evaluar el riesgo en el área rural.</li>
+        <li>Determinar el nivel de riesgo en Bogotá.</li>
+      </ul>
+    </div>
+
+    <button class="accordion">03. Justificación</button>
+    <div class="panel">
+      <p>Es esencial predecir la calidad del agua para prevenir riesgos sanitarios. Aplicar modelos de machine learning permite anticipar deterioros y apoyar una gestión eficiente del recurso hídrico.</p>
+    </div>
+
+    <button class="accordion">04. ODS</button>
+    <div class="panel">
+      <ul>
+        <li>ODS 3: Salud y Bienestar</li>
+        <li>ODS 6: Agua limpia y saneamiento</li>
+      </ul>
+    </div>
+
+    <button class="accordion">05. Método de Predicción</button>
+    <div class="panel">
+      <p>Se utiliza el algoritmo Gradient Boosting, ideal para grandes volúmenes de datos y adaptable a variaciones estadísticas en el dataset.</p>
+    </div>
+
+    <button class="accordion">06. Primera Fase</button>
+    <div class="panel">
+      <p><strong>Preguntas clave:</strong></p>
+      <ul>
+        <li>¿Existen patrones estacionales o temporales en el IRCA en Bogotá?</li>
+        <li>¿Qué municipios presentan más riesgo y cómo priorizar acciones sanitarias?</li>
+      </ul>
+      <p><strong>Metas:</strong></p>
+      <ul>
+        <li>Visualizar riesgo por municipio y periodo.</li>
+        <li>Identificar variables clave para prevenir riesgos.</li>
+        <li>Construir un modelo predictivo efectivo.</li>
+      </ul>
+    </div>
+
+    <button class="accordion">07. Repositorio y Autor</button>
+    <div class="panel">
+      <p>Repositorio del proyecto: <a href="https://github.com/JMR564/IndiceDeRiesgoCalidadAgua" target="_blank">github.com/JMR564/IndiceDeRiesgoCalidadAgua</a></p>
+      <p><strong>Autor:</strong> Juan Manuel Ramirez Araque</p>
+    </div>
+
+    <!-- Formulario -->
+    <h2>Formulario de Predicción</h2>
+    <form method="POST" action="/resultado">
+      <div class="form-group">
+        <label for="ciudad">Ciudad:</label>
+        <select name="ciudad" id="ciudad" required>
+          {% for ciudad in ciudades %}
+            <option value="{{ ciudad }}">{{ ciudad }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="irca_urbano">IRCA Urbano:</label>
+        <input type="number" step="any" name="irca_urbano" placeholder="Ej: 10.5" required>
+      </div>
+
+      <div class="form-group">
+        <label for="irca_rural">IRCA Rural:</label>
+        <input type="number" step="any" name="irca_rural" placeholder="Ej: 30.8" required>
+      </div>
+
+      <button type="submit">Realizar Predicción</button>
+    </form>
+
+    <div class="footer">
+      &copy; 2025 - Sistema de Predicción de Riesgo del Agua
+    </div>
+  </div>
+
+  <!-- Script para acordeones -->
+  <script>
+    const acc = document.getElementsByClassName("accordion");
+    for (let i = 0; i < acc.length; i++) {
+      acc[i].addEventListener("click", function () {
+        this.classList.toggle("active");
+        const panel = this.nextElementSibling;
+        panel.style.display = (panel.style.display === "block") ? "none" : "block";
+      });
+    }
+  </script>
+</body>
+</html>
 
 
-if __name__ == "__main__":
-  
-    ciudades = ["Bogotá, D.C.","Sopó","Chía","Zipaquirá","Cajicá"]
-    
-    obtener_datos_por_ciudades(ciudades)
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Resultado de Predicción</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7fa;
+            color: #333;
+            padding: 40px;
+            margin: 0;
+        }
+
+        h1, h2, h3 {
+            color: #2c3e50;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            padding: 24px;
+            margin-bottom: 30px;
+        }
+
+        .riesgo {
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 1.3em;
+            font-weight: bold;
+            text-align: center;
+            color: white;
+            margin-top: 10px;
+        }
+
+        .Sin\ riesgo {
+            background-color: #2ecc71;
+        }
+
+        .Riesgo\ bajo {
+            background-color: #27ae60;
+        }
+
+        .Riesgo\ medio {
+            background-color: #f39c12;
+        }
+
+        .Riesgo\ alto {
+            background-color: #e67e22;
+        }
+
+        .Riesgo\ inviable\ sanitariamente {
+            background-color: #e74c3c;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        li {
+            background-color: #ecf0f1;
+            margin: 6px 0;
+            padding: 10px;
+            border-radius: 6px;
+        }
+
+        pre {
+            background-color: #ecf0f1;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+
+        img {
+            width: 100%;
+            border-radius: 8px;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 0.9em;
+            color: #999;
+            margin-top: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Resultado para {{ municipio }}</h1>
+
+        <div class="card">
+            <h3>Predicción del Nivel de Riesgo</h3>
+            <div class="riesgo {{ clase_predicha }}">
+                {{ clase_predicha }}
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Probabilidades por Clase</h3>
+            <ul>
+                {% for clase, porcentaje in predicciones.items() %}
+                    <li><strong>{{ clase }}:</strong> {{ porcentaje }}%</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <div class="card">
+            <h3>Reporte de Clasificación</h3>
+            <pre>{{ reporte }}</pre>
+        </div>
+
+        <div class="card">
+            <h3>Matriz de Confusión</h3>
+            <img src="{{ imagen }}" alt="Matriz de Confusión">
+        </div>
+
+        <div class="footer">
+            &copy; 2025 - Predicción de Calidad del Agua
+        </div>
+    </div>
+</body>
+</html>
