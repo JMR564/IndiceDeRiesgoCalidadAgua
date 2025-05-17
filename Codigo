@@ -24,3 +24,48 @@ def cargar_datos(ciudades):
     except mysql.connector.Error as error:
         print("Error al conectar o consultar:", error)
         return pd.DataFrame()
+
+import pandas as pd
+import random
+
+ruta_csv = "calidad_agua_irca.csv"
+df = pd.read_csv(ruta_csv)
+
+
+df.columns = df.columns.str.strip()
+
+
+df_unicos = df.drop_duplicates(subset=["Departamento", "Municipio", "Año"])
+
+def generar_valores():
+    return {
+        "pH": round(random.uniform(6.0, 8.5), 2),
+        "Turbiedad": round(random.uniform(0.0, 10.0), 2),
+        "Color": round(random.uniform(0.0, 50.0), 1),
+        "Coliformes_Totales": round(random.uniform(0, 1000), 1),
+        "Coliformes_Fecales": round(random.uniform(0, 500), 1),
+    }
+
+lineas_sql = []
+for _, fila in df_unicos.iterrows():
+    sim = generar_valores()
+    sql = f"""
+UPDATE calidad_del_agua_para_consumo_humano_en_colombia_20250514
+SET
+  pH = {sim['pH']},
+  Turbiedad = {sim['Turbiedad']},
+  Color = {sim['Color']},
+  Coliformes_Totales = {sim['Coliformes_Totales']},
+  Coliformes_Fecales = {sim['Coliformes_Fecales']}
+WHERE
+  Departamento = '{fila['Departamento'].replace("'", "''")}' AND
+  Municipio = '{fila['Municipio'].replace("'", "''")}' AND
+  Año = {int(fila['Año'])};
+"""
+    lineas_sql.append(sql.strip())
+
+
+with open("actualizar_datos_simulados.sql", "w", encoding="utf-8") as f:
+    f.write("\n\n".join(lineas_sql))
+
+print("Script SQL generado con ", len(lineas_sql), "actualizaciones.")
